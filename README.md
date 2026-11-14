@@ -1,150 +1,102 @@
-# Retail Inventory & Supply Chain Analytics (SQL + Python + Power BI)
+# Retail Supply Chain Analytics
+### Inventory performance · Supplier risk · Demand forecasting · Power BI
 
-An end-to-end supply chain analytics project for a multi-region retail
-chain: why are stores running out of stock, which suppliers are actually
-causing it, how much is spoilage costing the business, and can a simple
-forecast improve reordering? Built using **SQL**, **Python (pandas)**, and
-designed to plug directly into **Power BI** for an interactive dashboard.
+An exploratory analytics case study of inventory availability, supplier reliability, and spoilage across a simulated multi-region retail operation. The repository combines a Python analysis workflow, SQL queries, Power BI assets, and documented operational recommendations.
 
-## Problem Statement
+> **Project provenance:** This repository is an adaptation/study copy of [DataWithSoumya/retail-supply-chain-analytics](https://github.com/DataWithSoumya/retail-supply-chain-analytics). The source code, supplied data, report assets, and original analytical approach originated there. My work so far has been to set up the project on macOS, run the analysis, reproduce its outputs, and review the results. The work should not be interpreted as an independently designed dashboard or pipeline. Redistribution permissions for the upstream assets have not yet been verified.
 
-The chain has stockouts eating into sales and spoilage eating into margin,
-but no clear view of *why* — is it demand spikes, slow suppliers, unreliable
-suppliers, or badly-set reorder points? This project traces stockouts and
-spoilage back to their actual drivers across 16 stores, 30 products, and
-10 suppliers over a full year of weekly inventory data.
+## The analytical question
 
-## Tech Stack
+A high overall in-stock rate can hide expensive local failures. Which products and regions experience stockouts? Are delays or supplier reliability more closely associated with those gaps? How much stock is lost to spoilage, and could a straightforward demand estimate help inform replenishment?
 
-- **Python**: pandas, numpy, matplotlib — cleaning, KPI calculation, root
-  cause analysis, and a simple demand forecast
-- **SQL**: SQL (queries portable to PostgreSQL/MySQL with minor tweaks)
-- **Power BI**: a ready-to-import flat dataset + full DAX measures + a
-  page-by-page build guide (`powerbi/POWER_BI_GUIDE.md`) — not a `.pbix`
-  file, since that's a binary format unsuited to a Git repo, but everything
-  needed to build the dashboard yourself in ~20 minutes
-- **Data**: synthetic weekly inventory ledger (52 weeks, 16 stores, 30
-  products across 5 categories, 10 suppliers) simulating realistic
-  reorder-point behavior, supplier lead times, delivery delays, and
-  perishable spoilage — intentionally includes missing values, inconsistent
-  text, and duplicates for cleaning practice
+The supplied synthetic data represents weekly inventory observations for **16 stores, 30 products, and 10 suppliers**, grouped across four regions and five product categories.
 
-## Project Structure
+## What's in the repository?
 
-```
-retail-supply-chain-analytics/
-├── data/
-│   ├── inventory_ledger.csv         # raw weekly stock ledger (with data quality issues)
-│   ├── inventory_ledger_clean.csv   # cleaned data (output of analysis.py)
-│   ├── stores.csv                    # store master data
-│   ├── products.csv                  # product catalog
-│   ├── suppliers.csv                 # supplier master data
-│   ├── powerbi_dataset.csv          # flat, joined table ready for Power BI import
-│   └── summary_metrics.csv          # key headline metrics
-├── sql/
-│   └── schema_and_queries.sql       # table schema + 10 business-question queries
-├── images/                          # generated charts
-├── powerbi/
-│   └── POWER_BI_GUIDE.md            # step-by-step dashboard build guide + DAX measures
-├── analysis.py                      # cleaning + KPI + root cause + forecast analysis
-├── SUPPLY_CHAIN_RECOMMENDATIONS.md  # actionable supplier/inventory/spoilage strategy
-└── README.md
-```
+| Component | Location | Purpose |
+| --- | --- | --- |
+| Python analysis | `analysis.py` | Clean weekly records, derive KPIs, compare categories and suppliers, and evaluate a moving-average forecast |
+| Raw and processed datasets | `data/` | Source ledger, lookup tables, cleaned ledger, flat Power BI dataset, and KPI summary |
+| SQL analysis | `sql/schema_and_queries.sql` | Schema and business-oriented analytical queries |
+| Power BI report | `retail-supply-chain-dashboard.pbix` | Report file supplied by the upstream project; not independently authored here |
+| Power BI documentation | `powerbi/POWER_BI_GUIDE.md` | DAX measures and suggested report-page structure |
+| Exploratory charts | `images/` | Category, region, supplier, spoilage, and forecasting visuals |
+| Recommendations | `SUPPLY_CHAIN_RECOMMENDATIONS.md` | Operational interpretation of the supplied analysis |
 
-## How to Run
+## Reproducing the Python analysis
+
+From the project directory:
 
 ```bash
-pip install pandas numpy matplotlib
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install pandas numpy matplotlib
 python analysis.py
 ```
 
-This cleans the data, prints KPI and root-cause analysis to the console,
-regenerates all charts in `images/`, and exports the Power BI-ready dataset.
+The script writes `data/inventory_ledger_clean.csv`, `data/powerbi_dataset.csv`, `data/summary_metrics.csv`, and charts under `images/`.
 
-To run the SQL queries, load the cleaned CSVs into SQL:
-```bash
-SQL3 data/supply_chain.db
-.mode csv
-.import data/inventory_ledger_clean.csv inventory_ledger
-.import data/stores.csv stores
-.import data/products.csv products
-.import data/suppliers.csv suppliers
-.read sql/schema_and_queries.sql
-```
+**Local reproduction (14 November 2026):** the run processed 17,417 raw ledger rows, removed 257 duplicates, and generated the expected cleaned datasets and figures.
 
-To build the dashboard, follow `powerbi/POWER_BI_GUIDE.md`.
+## Findings reproduced in the local run
 
-## Data Cleaning Steps
+| Indicator | Result |
+| --- | ---: |
+| Overall fill rate | 98.2% |
+| Stockout rate | 1.8% |
+| Estimated lost sales value | 2,123,038 |
+| Total spoilage cost | 6,199,272 |
+| Highest category stockout rate | Packaged Foods — 2.2% |
+| Forecast example | Energy Drink Can, 4-week moving average |
+| Forecast MAPE | 7.2% |
 
-- Removed exact duplicate rows
-- Standardized inconsistent category naming (`packaged foods` / ` Packaged Foods ` → `Packaged Foods`)
-- Filled missing `units_received` values with 0 (no delivery recorded that week)
+*The source output does not establish a currency, so cost figures are shown without currency symbols. All figures are based on synthetic data and are not real retailer performance.*
 
-## Key Findings
+### Where availability breaks down
 
-- **Overall fill rate: 98.2%** (1.8% stockout rate) — solid on average, but
-  masks real gaps by category and supplier
-- **Supplier reliability drives stockouts more than lead time does**: lead
-  time actually correlates *negatively* with stockout rate (-0.45) because
-  reorder points already compensate for slow suppliers — but reliability
-  correlates as expected (-0.44), meaning **unreliable suppliers, not slow
-  ones, are the real risk**
-- **Packaged Foods has the highest stockout rate (2.2%)** despite not being
-  perishable — a reorder-point sizing issue more than a supply problem
-- **Spoilage is heavily concentrated in Perishables**, by far the largest
-  share of total spoilage cost — a targeted fix (smaller, more frequent
-  orders) rather than a catalog-wide policy change
-- **A simple 4-week moving-average forecast hit ~7% MAPE** on the
-  highest-volume product — accurate enough to meaningfully improve reorder
-  timing without needing a complex model
+![Stockout rate by category](images/stockout_rate_by_category.png)
 
-### Stockout Rate by Category
-![Stockout Rate by Category](images/stockout_rate_by_category.png)
+The headline fill rate is high, but Packaged Foods reports the highest category stockout rate. That suggests reviewing category-level replenishment settings rather than relying only on an aggregate service KPI.
 
-### Stockout Rate by Region
-![Stockout Rate by Region](images/stockout_rate_by_region.png)
+### Supplier performance
 
-### Inventory Turnover by Category
-![Inventory Turnover](images/inventory_turnover_by_category.png)
+![Supplier lead time compared with stockouts](images/supplier_lead_time_vs_stockouts.png)
 
-### Supplier Lead Time vs. Stockout Rate
-![Supplier Lead Time vs Stockouts](images/supplier_lead_time_vs_stockouts.png)
+Supplier-level correlations in this sample were **−0.45** for lead time versus stockout rate and **−0.44** for reliability versus stockout rate. These are associations in generated data—not evidence that one variable causes stockouts. Differences in reorder policies and supplier assignment may affect both relationships.
 
-### Spoilage Cost by Category
-![Spoilage Cost by Category](images/spoilage_cost_by_category.png)
+### The spoilage trade-off
 
-## Demand Forecast vs. Actual
+![Spoilage cost by category](images/spoilage_cost_by_category.png)
 
-A simple 4-week moving-average forecast was tested against actual weekly
-demand for the highest-volume product in the catalog:
+Perishables account for most of the simulated spoilage cost. A sensible next analysis would compare smaller, more frequent orders against the resulting service-level and procurement-cost trade-offs.
 
-![Demand Forecast vs Actual](images/demand_forecast_vs_actual.png)
+### A lightweight forecast baseline
 
-**Interpretation:** even this simple approach tracks actual demand closely
-(~7% MAPE), suggesting a low-maintenance forecasting layer could meaningfully
-tighten reorder timing chain-wide, especially ahead of seasonal demand spikes.
+![Moving average forecast compared with actual demand](images/demand_forecast_vs_actual.png)
 
-## Supply Chain Recommendations
+The four-week moving-average example achieved **7.2% MAPE** on one product. This is a useful baseline, but not proof that the same performance holds across all SKUs or seasons.
 
-See [`SUPPLY_CHAIN_RECOMMENDATIONS.md`](SUPPLY_CHAIN_RECOMMENDATIONS.md) for
-the full set of supplier, category, and regional recommendations — including
-an honest note on why the lead-time finding looks backwards at first glance.
+## Power BI report
 
-## Power BI Dashboard
+The repository contains the upstream `.pbix` and a build guide describing an Executive Overview, Supplier Scorecard, and Inventory Health page. See [the Power BI guide](powerbi/POWER_BI_GUIDE.md) for measures and field mappings.
 
-See [`powerbi/POWER_BI_GUIDE.md`](powerbi/POWER_BI_GUIDE.md) for a full
-walkthrough: DAX measures, page layouts (Executive Overview, Supplier
-Scorecard, Inventory Health), and an optional proper star-schema model.
+Power BI Desktop does not run natively on macOS. A supported Windows environment or an eligible Power BI Service account is needed to edit or publish the PBIX. **A publicly hosted report link is not available for this repository yet.**
 
-## Possible Next Steps
+## Areas to improve
 
-- Make safety stock proportional to supplier reliability instead of a flat
-  percentage of demand
-- Extend the moving-average forecast to every SKU and feed it into the
-  reorder-point formula directly
-- Add supplier cost data to weigh "switch suppliers" tradeoffs against
-  service-level gains
-- Publish the Power BI dashboard to the Power BI Service and link it here
+The most useful original contributions would be to:
 
----
-*Note: Dataset is synthetically generated for portfolio/demonstration purposes and does not represent a real business.*
+1. Model the supplier, store, product, and inventory tables as a documented star schema and verify filter behavior.
+2. Test how fill rate, stockout rate, and turnover definitions behave under different aggregation levels.
+3. Compare a four-week moving average with seasonal naïve and other baseline forecasts on multiple products using time-based validation.
+4. Add supplier risk segmentation, forecast error analysis, and actionable replenishment scenarios.
+5. Rebuild and publish an original Power BI report with documented changes and permission to use all included assets.
+
+## Source and usage notes
+
+- **Upstream author/project:** [DataWithSoumya — retail-supply-chain-analytics](https://github.com/DataWithSoumya/retail-supply-chain-analytics)
+- **Data:** Synthetic demonstration dataset; not operational or confidential company data.
+- **Attribution:** The original project provides the datasets, analysis implementation, SQL, Power BI materials, and primary findings. Running it locally does not transfer authorship.
+- **Licensing:** No top-level license was identified in the upstream file listing. Public visibility alone does not grant redistribution rights. Permission for rehosting the upstream materials should be clarified before treating this repository as a distributable project.
+
+This repository currently documents a **reproduced learning case study**. Any future independently implemented changes should be recorded explicitly in the commit history and this README.
